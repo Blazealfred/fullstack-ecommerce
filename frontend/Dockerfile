@@ -1,10 +1,16 @@
 # Stage 1: Build the front-end application
-FROM node:14-alpine as build
+FROM node:18-alpine AS build
 WORKDIR /app
+
+# Copy only package.json and package-lock.json first for caching
 COPY package*.json ./
 RUN npm install
-COPY . .
-RUN npm run build
+
+# Copy the rest of the frontend code
+COPY . . 
+
+# Ensure the build runs correctly and check if dist/ exists
+RUN npm run build && ls -la /app/dist
 
 # Stage 2: Serve the built app with Nginx
 FROM nginx:alpine
