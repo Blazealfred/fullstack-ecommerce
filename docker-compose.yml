@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  backend:
+    build: ./E-Shop-Backend-main-
+    container_name: e_shop_backend
+    ports:
+      - "3100:3000"
+    environment:
+      - NODE_ENV=production
+
+  frontend:
+    build: ./E-Shop-Frontend-
+    container_name: e_shop_frontend
+    ports:
+      - "8080:80"
