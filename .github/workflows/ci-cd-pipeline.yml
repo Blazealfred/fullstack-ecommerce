@@ -58,7 +58,7 @@ jobs:
       - name: Check if frontend is running
         run: |
           docker ps
-          curl -I http://e_shop_frontend || exit 1  # ✅ Ensure frontend is accessible
+          curl -I http://localhost:8080 || exit 1  # ✅ Ensure frontend is accessible
 
       - name: Run OWASP ZAP Scan
         run: |
