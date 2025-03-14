@@ -62,7 +62,7 @@ jobs:
 
       - name: Run OWASP ZAP Scan
         run: |
-          docker run --network ecommerce_default -t ghcr.io/zaproxy/zaproxy zap-baseline.py -t http://e_shop_frontend
+          docker run --network ecommerce_default -t ghcr.io/zaproxy/zaproxy zap-baseline.py -t http://localhost:8080
           
   push-to-ecr:
     name: Push Docker Images to AWS ECR
