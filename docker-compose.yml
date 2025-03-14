@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   backend:
-    build: ./E-Shop-Backend-main-
+    build: ./backend  # Ensure this folder exists!
     container_name: e_shop_backend
     ports:
       - "3100:3000"
@@ -9,7 +9,7 @@ services:
       - NODE_ENV=production
 
   frontend:
-    build: ./E-Shop-Frontend-
+    build: ./frontend  # Ensure this folder exists!
     container_name: e_shop_frontend
     ports:
       - "8080:80"
