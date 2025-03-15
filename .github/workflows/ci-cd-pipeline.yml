@@ -1,0 +1,64 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t ecommerce-backend:latest ./backend
+      
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t ecommerce-frontend:latest ./frontend
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Run Unit Tests (Example)
+        run: echo "Run backend and frontend tests here"
+
+  security_scan:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Run SonarQube Scan
+        run: echo "Run SonarQube scan here"
+
+  push_to_ecr:
+    runs-on: ubuntu-latest
+    needs: security_scan
+    steps:
+      - name: Authenticate with AWS
+        run: echo "Login to AWS ECR here"
+      - name: Push Docker Images to ECR
+        run: echo "Push frontend & backend images to AWS ECR"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: push_to_ecr
+    steps:
+      - name: Deploy to AWS EC2 using Terraform
+        run: echo "Terraform apply for EC2 deployment"
+
+  monitoring:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Setup Prometheus & Grafana
+        run: echo "Install and configure monitoring tools"
