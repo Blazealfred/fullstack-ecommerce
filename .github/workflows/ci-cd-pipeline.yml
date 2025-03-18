@@ -10,9 +10,8 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  AWS_ACCOUNT_ID: 422657065666  # 🔹 Replace with your AWS Account ID
-  FRONTEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/frontend
-  BACKEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/backend
+  FRONTEND_ECR: 422657065666.dkr.ecr.us-east-1.amazonaws.com/frontend
+  BACKEND_ECR: 422657065666.dkr.ecr.us-east-1.amazonaws.com/backend
 
 jobs:
   build_and_test:
@@ -25,15 +24,17 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Build Frontend Docker Image
-        run: docker build -t ecommerce-frontend ./frontend
+        run: |
+          docker build -t ecommerce-frontend:latest ./frontend
 
       - name: Build Backend Docker Image
-        run: docker build -t ecommerce-backend ./backend
+        run: |
+          docker build -t ecommerce-backend:latest ./backend
 
-    push_to_ecr:
-      runs-on: ubuntu-latest
-      needs: build_and_test
-      steps:
+  push_to_ecr:
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
@@ -49,9 +50,8 @@ jobs:
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $FRONTEND_ECR
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $BACKEND_ECR
 
-      - name: **Ensure Docker Images Exist Before Pushing**
-        run: |
-          docker images
+      - name: List Docker Images (Debugging Step)
+        run: docker images
 
       - name: Tag and Push Frontend Docker Image
         run: |
@@ -63,21 +63,11 @@ jobs:
           docker tag ecommerce-backend:latest $BACKEND_ECR:latest
           docker push $BACKEND_ECR:latest
 
-
   deploy:
     runs-on: ubuntu-latest
     needs: push_to_ecr
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.0
-
-      - name: Initialize Terraform
-        run: terraform init
-
-      - name: Apply Terraform Configuration
-        run: terraform apply -auto-approve
+      - name: Deploy to AWS EC2 using Terraform
+        run: |
+          terraform init
+          terraform apply -auto-approve
