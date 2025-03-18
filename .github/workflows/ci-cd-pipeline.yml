@@ -6,8 +6,21 @@ on:
       - main
 
 jobs:
+  sonar-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{faf797e845c1994e0c4860957283e1f1bc65f1d5}}
+          SONAR_HOST_URL: https://sonarcloud.io
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: sonar-analysis
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -15,7 +28,6 @@ jobs:
       - name: Authenticate with AWS
         run: |
           echo "${{ secrets.AWS_ACCESS_KEY_ID }}" | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
-
 
       - name: Build & Push Frontend Image
         run: |
@@ -41,4 +53,4 @@ jobs:
       - name: Deploy with Terraform
         run: |
           terraform init
-          terraform apply -auto-approve
+          terraform apply -auto-approve
