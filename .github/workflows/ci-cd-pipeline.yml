@@ -10,66 +10,72 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  FRONTEND_ECR: 422657065666.dkr.ecr.us-east-1.amazonaws.com/frontend
-  BACKEND_ECR: 422657065666.dkr.ecr.us-east-1.amazonaws.com/backend
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  FRONTEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/frontend
+  BACKEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/backend
 
 jobs:
-  build_and_test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build Frontend Docker Image
-        run: |
-          docker build -t ecommerce-frontend:latest ./frontend
-          docker images
-
       - name: Build Backend Docker Image
-        run: |
-          docker build -t ecommerce-backend:latest ./backend
-          docker images
+        run: docker build -t ecommerce-backend:latest ./backend
 
-  push_to_ecr:
-    runs-on: ubuntu-latest
-    needs: build_and_test
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Authenticate Docker to AWS ECR
-        run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $FRONTEND_ECR
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $BACKEND_ECR
+      - name: Build Frontend Docker Image
+        run: docker build -t ecommerce-frontend:latest ./frontend
 
       - name: List Docker Images (Debugging Step)
         run: docker images
 
-      - name: Tag and Push Frontend Docker Image
+      - name: Save Frontend Image ID
+        run: echo "FRONTEND_IMAGE_ID=$(docker images -q ecommerce-frontend)" >> $GITHUB_ENV
+
+      - name: Save Backend Image ID
+        run: echo "BACKEND_IMAGE_ID=$(docker images -q ecommerce-backend)" >> $GITHUB_ENV
+
+  push_to_ecr:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Authenticate with AWS ECR
         run: |
-          docker tag ecommerce-frontend:latest $FRONTEND_ECR:latest
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $FRONTEND_ECR
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $BACKEND_ECR
+
+      - name: Tag and Push Frontend Image
+        run: |
+          docker tag $FRONTEND_IMAGE_ID $FRONTEND_ECR:latest
           docker push $FRONTEND_ECR:latest
 
-      - name: Tag and Push Backend Docker Image
+      - name: Tag and Push Backend Image
         run: |
-          docker tag ecommerce-backend:latest $BACKEND_ECR:latest
+          docker tag $BACKEND_IMAGE_ID $BACKEND_ECR:latest
           docker push $BACKEND_ECR:latest
 
   deploy:
     runs-on: ubuntu-latest
     needs: push_to_ecr
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
       - name: Deploy to AWS EC2 using Terraform
         run: |
           terraform init
           terraform apply -auto-approve
+
+  monitoring:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Setup Prometheus & Grafana
+        run: echo "Install and configure monitoring tools manually"
