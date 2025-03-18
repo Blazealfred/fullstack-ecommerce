@@ -30,10 +30,10 @@ jobs:
       - name: Build Backend Docker Image
         run: docker build -t ecommerce-backend ./backend
 
-  push_to_ecr:
-    runs-on: ubuntu-latest
-    needs: build_and_test
-    steps:
+    push_to_ecr:
+      runs-on: ubuntu-latest
+      needs: build_and_test
+      steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
@@ -49,6 +49,10 @@ jobs:
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $FRONTEND_ECR
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $BACKEND_ECR
 
+      - name: **Ensure Docker Images Exist Before Pushing**
+        run: |
+          docker images
+
       - name: Tag and Push Frontend Docker Image
         run: |
           docker tag ecommerce-frontend:latest $FRONTEND_ECR:latest
@@ -58,6 +62,7 @@ jobs:
         run: |
           docker tag ecommerce-backend:latest $BACKEND_ECR:latest
           docker push $BACKEND_ECR:latest
+
 
   deploy:
     runs-on: ubuntu-latest
