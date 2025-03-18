@@ -13,8 +13,6 @@ env:
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
   FRONTEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/frontend
   BACKEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/backend
-  SONAR_HOST_URL: "http://your-sonarqube-server"  # Replace with SonarQube URL
-  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
 jobs:
   build:
@@ -42,33 +40,16 @@ jobs:
   security_scan:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Install SonarScanner
-      run: |
-        sudo apt-get update -y
-        sudo apt-get install -y unzip
-        wget -O sonarqube.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-        unzip sonarqube.zip
-        mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
-        echo "export PATH=\$PATH:/opt/sonar-scanner/bin" >> ~/.bashrc
-        source ~/.bashrc
-        sonar-scanner --version  # ✅ Check if SonarScanner installed correctly
-
-    - name: Run SonarQube Scan
-      env:
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: |
-        /opt/sonar-scanner/bin/sonar-scanner \
-          -Dsonar.projectKey=ecommerce \
-          -Dsonar.sources=. \
-          -Dsonar.host.url=$SONAR_HOST_URL \
-          -Dsonar.login=$SONAR_TOKEN
-
-
-
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: .
 
   push_to_ecr:
     runs-on: ubuntu-latest
@@ -83,8 +64,8 @@ jobs:
 
       - name: Authenticate Docker with AWS ECR
         run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $FRONTEND_ECR
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $BACKEND_ECR
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+          docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
 
       - name: Tag and Push Frontend Image
         run: |
@@ -111,12 +92,15 @@ jobs:
       - name: Initialize Terraform
         run: terraform init
 
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
       - name: Apply Terraform Changes
-        run: terraform apply -auto-approve
+        run: terraform apply tfplan
 
   monitoring:
     runs-on: ubuntu-latest
     needs: deploy
     steps:
-      - name: Manual Monitoring Setup (Reminder)
-        run: echo "Remember to set up Prometheus & Grafana on your EC2 instance manually!"
+      - name: Setup Prometheus & Grafana (Manual)
+        run: echo "Deploy Prometheus & Grafana using Terraform or manual setup."
