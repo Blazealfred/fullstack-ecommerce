@@ -4,53 +4,99 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  FRONTEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/frontend
+  BACKEND_ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/backend
+  SONAR_HOST_URL: "http://your-sonarqube-server"  # Replace with SonarQube URL
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
 jobs:
-  sonar-analysis:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v2
-        env:
-          SONAR_TOKEN: ${{faf797e845c1994e0c4860957283e1f1bc65f1d5}}
-          SONAR_HOST_URL: https://sonarcloud.io
+      - name: Build Backend Docker Image
+        run: docker build -t ecommerce-backend:latest ./backend
 
-  build-and-push:
+      - name: Build Frontend Docker Image
+        run: docker build -t ecommerce-frontend:latest ./frontend
+
+  test:
     runs-on: ubuntu-latest
-    needs: sonar-analysis
+    needs: build
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Run Unit Tests (Example)
+        run: echo "Run backend and frontend tests here"
 
-      - name: Authenticate with AWS
-        run: |
-          echo "${{ secrets.AWS_ACCESS_KEY_ID }}" | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
-
-      - name: Build & Push Frontend Image
-        run: |
-          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/frontend:latest ./frontend
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/frontend:latest
-
-      - name: Build & Push Backend Image
-        run: |
-          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/backend:latest ./backend
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/backend:latest
-
-  deploy:
+  security_scan:
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: test
+    steps:
+      - name: SonarQube Scan
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=ecommerce \
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ env.SONAR_TOKEN }}
+
+  push_to_ecr:
+    runs-on: ubuntu-latest
+    needs: security_scan
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy with Terraform
+      - name: Authenticate Docker with AWS ECR
         run: |
-          terraform init
-          terraform apply -auto-approve
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $FRONTEND_ECR
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $BACKEND_ECR
+
+      - name: Tag and Push Frontend Image
+        run: |
+          docker tag ecommerce-frontend:latest $FRONTEND_ECR:latest
+          docker push $FRONTEND_ECR:latest
+
+      - name: Tag and Push Backend Image
+        run: |
+          docker tag ecommerce-backend:latest $BACKEND_ECR:latest
+          docker push $BACKEND_ECR:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: push_to_ecr
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: latest
+
+      - name: Initialize Terraform
+        run: terraform init
+
+      - name: Apply Terraform Changes
+        run: terraform apply -auto-approve
+
+  monitoring:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Manual Monitoring Setup (Reminder)
+        run: echo "Remember to set up Prometheus & Grafana on your EC2 instance manually!"
