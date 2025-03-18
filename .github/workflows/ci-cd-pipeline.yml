@@ -18,26 +18,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
-      - name: Build Backend Docker Image
-        run: docker build -t ecommerce-backend:latest ./backend
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-      - name: Build Frontend Docker Image
-        run: docker build -t ecommerce-frontend:latest ./frontend
+    - name: Build Backend Docker Image
+      run: |
+        docker build -t ecommerce-backend:latest ./backend
+        echo "BACKEND_IMAGE_ID=$(docker images -q ecommerce-backend:latest)" >> $GITHUB_ENV
 
-      - name: List Docker Images (Debugging Step)
-        run: docker images
+    - name: Build Frontend Docker Image
+      run: |
+        docker build -t ecommerce-frontend:latest ./frontend
+        echo "FRONTEND_IMAGE_ID=$(docker images -q ecommerce-frontend:latest)" >> $GITHUB_ENV
 
-      - name: Save Frontend Image ID
-        run: echo "FRONTEND_IMAGE_ID=$(docker images -q ecommerce-frontend)" >> $GITHUB_ENV
-
-      - name: Save Backend Image ID
-        run: echo "BACKEND_IMAGE_ID=$(docker images -q ecommerce-backend)" >> $GITHUB_ENV
 
   push_to_ecr:
     runs-on: ubuntu-latest
