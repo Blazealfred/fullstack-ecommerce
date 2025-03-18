@@ -45,10 +45,12 @@ jobs:
     steps:
       - name: SonarQube Scan
         run: |
-          mvn sonar:sonar \
-            -Dsonar.projectKey=ecommerce \
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ env.SONAR_TOKEN }}
+          sonar-scanner \
+          -Dsonar.projectKey=ecommerce \
+          -Dsonar.sources=. \
+          -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+          -Dsonar.login=${{ env.SONAR_TOKEN }}
+
 
   push_to_ecr:
     runs-on: ubuntu-latest
