@@ -51,12 +51,16 @@ jobs:
        echo "/opt/sonar-scanner/bin" >> $GITHUB_PATH
 
     - name: SonarQube Scan
+      env:
+       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: |
        sonar-scanner \
-       -Dsonar.projectKey=ecommerce \
-       -Dsonar.sources=. \
-       -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-       -Dsonar.login=${{ env.SONAR_TOKEN }}
+         -Dsonar.projectKey=ecommerce \
+         -Dsonar.sources=. \
+         -Dsonar.host.url=$SONAR_HOST_URL \
+         -Dsonar.login=$SONAR_TOKEN
+
 
 
   push_to_ecr:
