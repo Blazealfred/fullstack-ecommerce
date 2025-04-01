@@ -1,64 +1,84 @@
 pipeline {
     agent any
 
-    tools {
-        nodejs "NodeJS 18" // Use the installed NodeJS version from Jenkins
-    }
-
     environment {
-        BACKEND_DIR = "backend"
-        FRONTEND_DIR = "frontend"
+        NODEJS_VERSION = '18' // Adjust if needed
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Setup Environment') {
             steps {
-                echo "Checking out code from GitHub..."
-                git branch: 'main', url: 'https://github.com/Blazealfred/fullstack-ecommerce.git'
+                script {
+                    sh '''
+                    echo "Installing Node.js, npm, and Nginx..."
+                    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                    sudo apt-get install -y nodejs nginx
+                    sudo npm install -g pm2
+                    '''
+                }
             }
         }
 
-        stage('Build Backend') {
+        stage('Checkout Code') {
             steps {
-                script {
-                    echo "Building Backend..."
-                    dir(BACKEND_DIR) {
-                        sh '''
-                        npm install
-                        npm run build
-                        '''
-                    }
-                }
+                git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/Blazealfred/fullstack-ecommerce.git'
             }
         }
 
         stage('Build Frontend') {
             steps {
                 script {
-                    echo "Building Frontend..."
-                    dir(FRONTEND_DIR) {
-                        sh '''
-                        npm install
-                        npm run build
-                        '''
-                    }
+                    sh '''
+                    echo "Building frontend..."
+                    cd frontend
+                    npm install
+                    npm run build
+                    sudo rm -rf /var/www/html/*
+                    sudo cp -r dist/* /var/www/html/
+                    '''
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Build Backend') {
             steps {
-                echo "Deployment step (configure this as needed)..."
+                script {
+                    sh '''
+                    echo "Building backend..."
+                    cd backend
+                    npm install
+
+                    # Check if .env file exists (MongoDB might need this)
+                    if [ ! -f ".env" ]; then
+                        echo "⚠️ WARNING: No .env file found! Backend may fail to connect to MongoDB."
+                    fi
+
+                    # Start the backend using pm2
+                    pm2 stop backend || true
+                    pm2 start server.js --name backend
+                    '''
+                }
+            }
+        }
+
+        stage('Restart Nginx') {
+            steps {
+                script {
+                    sh '''
+                    echo "Restarting Nginx..."
+                    sudo systemctl restart nginx
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo "✅ Build & Deployment Successful!"
+            echo "✅ Deployment Successful!"
         }
         failure {
-            echo "❌ Build Failed! Check logs."
+            echo "❌ Deployment Failed! Check logs."
         }
     }
 }
