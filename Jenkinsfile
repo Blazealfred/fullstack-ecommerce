@@ -2,23 +2,10 @@ pipeline {
     agent any
 
     environment {
-        NODEJS_VERSION = '18' // Adjust if needed
+        NODEJS_VERSION = '18' // Assuming Node.js 18 is already installed
     }
 
     stages {
-        stage('Setup Environment') {
-            steps {
-                script {
-                    sh '''
-                    echo "Installing Node.js, npm, and Nginx..."
-                    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-                    sudo apt-get install -y nodejs nginx
-                    sudo npm install -g pm2
-                    '''
-                }
-            }
-        }
-
         stage('Checkout Code') {
             steps {
                 git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/Blazealfred/fullstack-ecommerce.git'
@@ -33,8 +20,8 @@ pipeline {
                     cd frontend
                     npm install
                     npm run build
-                    sudo rm -rf /var/www/html/*
-                    sudo cp -r dist/* /var/www/html/
+                    rm -rf /var/www/html/*
+                    cp -r dist/* /var/www/html/
                     '''
                 }
             }
@@ -53,7 +40,7 @@ pipeline {
                         echo "⚠️ WARNING: No .env file found! Backend may fail to connect to MongoDB."
                     fi
 
-                    # Start the backend using pm2
+                    # Restart backend with pm2
                     pm2 stop backend || true
                     pm2 start server.js --name backend
                     '''
@@ -66,7 +53,7 @@ pipeline {
                 script {
                     sh '''
                     echo "Restarting Nginx..."
-                    sudo systemctl restart nginx
+                    systemctl restart nginx || true
                     '''
                 }
             }
