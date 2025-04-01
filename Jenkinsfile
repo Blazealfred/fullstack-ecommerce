@@ -1,9 +1,19 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs "NodeJS 18" // Use the installed NodeJS version from Jenkins
+    }
+
+    environment {
+        BACKEND_DIR = "backend"
+        FRONTEND_DIR = "frontend"
+    }
+
     stages {
         stage('Checkout Code') {
             steps {
+                echo "Checking out code from GitHub..."
                 git branch: 'main', url: 'https://github.com/Blazealfred/fullstack-ecommerce.git'
             }
         }
@@ -11,13 +21,13 @@ pipeline {
         stage('Build Backend') {
             steps {
                 script {
-                    sh '''
                     echo "Building Backend..."
-                    cd backend
-                    npm install
-                    npm run build
-                    cd ..
-                    '''
+                    dir(BACKEND_DIR) {
+                        sh '''
+                        npm install
+                        npm run build
+                        '''
+                    }
                 }
             }
         }
@@ -25,21 +35,30 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 script {
-                    sh '''
                     echo "Building Frontend..."
-                    cd frontend
-                    npm install
-                    npm run build
-                    cd ..
-                    '''
+                    dir(FRONTEND_DIR) {
+                        sh '''
+                        npm install
+                        npm run build
+                        '''
+                    }
                 }
             }
         }
 
         stage('Deploy') {
             steps {
-                echo 'Deployment step goes here (e.g., Docker, SSH, AWS, etc.)'
+                echo "Deployment step (configure this as needed)..."
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Build & Deployment Successful!"
+        }
+        failure {
+            echo "❌ Build Failed! Check logs."
         }
     }
 }
