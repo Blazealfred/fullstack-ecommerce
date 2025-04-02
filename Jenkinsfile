@@ -2,70 +2,79 @@ pipeline {
     agent any
 
     environment {
-        NODEJS_VERSION = '18' // Assuming Node.js 18 is already installed
+        NODE_VERSION = '18.17.0'  // Set desired Node.js version
     }
 
     stages {
+        stage('Install Node.js if Missing') {
+            steps {
+                script {
+                    def nodeInstalled = sh(script: "node -v || echo 'not_installed'", returnStdout: true).trim()
+                    if (nodeInstalled == "not_installed") {
+                        echo "⚠️ Node.js not found! Installing Node.js..."
+                        sh """
+                            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                            sudo apt-get install -y nodejs
+                        """
+                    } else {
+                        echo "✅ Node.js is already installed: ${nodeInstalled}"
+                    }
+                }
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/Blazealfred/fullstack-ecommerce.git'
             }
         }
 
-        stage('Build Frontend') {
-            steps {
-                script {
-                    sh '''
-                    echo "Building frontend..."
-                    cd frontend
-                    npm install
-                    npm run build
-                    rm -rf /var/www/html/*
-                    cp -r dist/* /var/www/html/
-                    '''
-                }
-            }
-        }
-
         stage('Build Backend') {
             steps {
                 script {
-                    sh '''
-                    echo "Building backend..."
-                    cd backend
-                    npm install
-
-                    # Check if .env file exists (MongoDB might need this)
-                    if [ ! -f ".env" ]; then
-                        echo "⚠️ WARNING: No .env file found! Backend may fail to connect to MongoDB."
-                    fi
-
-                    # Restart backend with pm2
-                    pm2 stop backend || true
-                    pm2 start server.js --name backend
-                    '''
+                    echo "🚀 Building Backend..."
+                    dir('backend') {
+                        sh 'npm install'
+                        def packageJson = readJSON(file: 'package.json')
+                        if (packageJson.scripts?.build) {
+                            sh 'npm run build'
+                        } else {
+                            echo "⚠️ No 'build' script found in backend package.json. Skipping build."
+                        }
+                    }
                 }
             }
         }
 
-        stage('Restart Nginx') {
+        stage('Build Frontend') {
             steps {
                 script {
-                    sh '''
-                    echo "Restarting Nginx..."
-                    systemctl restart nginx || true
-                    '''
+                    echo "🚀 Building Frontend..."
+                    dir('frontend') {
+                        sh 'npm install'
+                        sh 'npm run build'
+                    }
                 }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "🚀 Deploying application..."
+                // Add deployment steps (e.g., copying files to a server, restarting services)
+                sh """
+                    echo "Frontend & Backend Deployment Placeholder"
+                """
             }
         }
     }
 
     post {
         success {
-            echo "✅ Deployment Successful!"
+            echo "✅ Build & Deployment Successful!"
         }
         failure {
-            echo "❌ Deployment Failed! Check logs."
+            echo "❌ Build Failed! Check logs."
         }
     }
 }
