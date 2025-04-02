@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_HUB_USER = 'mzrakshay'
-        DOCKER_HUB_PASSWORD = credentials('Akshaym6$')
+        DOCKER_HUB_PASSWORD = credentials('docker-hub-password') // Use stored credentials
         REPO_NAME = 'fullstack-ecommerce'
     }
 
@@ -53,7 +53,7 @@ pipeline {
 
         stage('Deploy to Server') {
             steps {
-                sshagent(['ec2-ssh-key']) {
+                sshagent(['ec2-ssh-key']) {  // Use stored SSH key
                     sh '''
                     ssh -o StrictHostKeyChecking=no ubuntu@your-ec2-ip << 'EOF'
                     docker pull $DOCKER_HUB_USER/backend:latest
