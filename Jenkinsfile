@@ -2,15 +2,15 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_USER = 'your-dockerhub-username'
-        DOCKER_HUB_PASSWORD = credentials('docker-hub-credentials')
-        REPO_NAME = 'your-repo-name'
+        DOCKER_HUB_USER = 'mzrakshay'
+        DOCKER_HUB_PASSWORD = credentials('Akshaym6$')
+        REPO_NAME = 'fullstack-ecommerce'
     }
 
     stages {
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
+                git branch: 'main', url: 'https://github.com/Blazealfred/fullstack-ecommerce.git'
             }
         }
 
