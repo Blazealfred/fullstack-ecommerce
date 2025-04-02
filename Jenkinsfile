@@ -2,79 +2,72 @@ pipeline {
     agent any
 
     environment {
-        NODE_VERSION = '18.17.0'  // Set desired Node.js version
+        DOCKER_HUB_USER = 'your-dockerhub-username'
+        DOCKER_HUB_PASSWORD = credentials('docker-hub-credentials')
+        REPO_NAME = 'your-repo-name'
     }
 
     stages {
-        stage('Install Node.js if Missing') {
+        stage('Clone Repository') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
+            }
+        }
+
+        stage('Install Dependencies') {
             steps {
                 script {
-                    def nodeInstalled = sh(script: "node -v || echo 'not_installed'", returnStdout: true).trim()
-                    if (nodeInstalled == "not_installed") {
-                        echo "⚠️ Node.js not found! Installing Node.js..."
-                        sh """
-                            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-                            sudo apt-get install -y nodejs
-                        """
-                    } else {
-                        echo "✅ Node.js is already installed: ${nodeInstalled}"
-                    }
+                    sh 'cd backend && npm install'
+                    sh 'cd frontend && npm install'
                 }
             }
         }
 
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/Blazealfred/fullstack-ecommerce.git'
-            }
-        }
-
-        stage('Build Backend') {
+        stage('Run Tests') {
             steps {
                 script {
-                    echo "🚀 Building Backend..."
-                    dir('backend') {
-                        sh 'npm install'
-                        def packageJson = readJSON(file: 'package.json')
-                        if (packageJson.scripts?.build) {
-                            sh 'npm run build'
-                        } else {
-                            echo "⚠️ No 'build' script found in backend package.json. Skipping build."
-                        }
-                    }
+                    sh 'cd backend && npm test || true'
+                    sh 'cd frontend && npm test || true'
                 }
             }
         }
 
-        stage('Build Frontend') {
+        stage('Build Docker Images') {
             steps {
                 script {
-                    echo "🚀 Building Frontend..."
-                    dir('frontend') {
-                        sh 'npm install'
-                        sh 'npm run build'
-                    }
+                    sh 'docker build -t $DOCKER_HUB_USER/backend:latest ./backend'
+                    sh 'docker build -t $DOCKER_HUB_USER/frontend:latest ./frontend'
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Push to Docker Hub') {
             steps {
-                echo "🚀 Deploying application..."
-                // Add deployment steps (e.g., copying files to a server, restarting services)
-                sh """
-                    echo "Frontend & Backend Deployment Placeholder"
-                """
+                script {
+                    sh 'echo $DOCKER_HUB_PASSWORD | docker login -u $DOCKER_HUB_USER --password-stdin'
+                    sh 'docker push $DOCKER_HUB_USER/backend:latest'
+                    sh 'docker push $DOCKER_HUB_USER/frontend:latest'
+                }
             }
         }
-    }
 
-    post {
-        success {
-            echo "✅ Build & Deployment Successful!"
-        }
-        failure {
-            echo "❌ Build Failed! Check logs."
+        stage('Deploy to Server') {
+            steps {
+                sshagent(['ec2-ssh-key']) {
+                    sh '''
+                    ssh -o StrictHostKeyChecking=no ubuntu@your-ec2-ip << 'EOF'
+                    docker pull $DOCKER_HUB_USER/backend:latest
+                    docker pull $DOCKER_HUB_USER/frontend:latest
+                    docker stop backend || true
+                    docker stop frontend || true
+                    docker rm backend || true
+                    docker rm frontend || true
+                    docker run -d --name backend -p 4000:4000 $DOCKER_HUB_USER/backend:latest
+                    docker run -d --name frontend -p 3000:3000 $DOCKER_HUB_USER/frontend:latest
+                    EOF
+                    '''
+                }
+            }
         }
     }
 }
